@@ -1,0 +1,16 @@
+pg:
+    name: enjoydb
+    user: enjoy
+    passwd: enjoypwd
+    host: 127.0.0.1
+    port: 5432
+    minsize: 0
+    maxsize: 10240
+preli:
+    lista:
+        - uno
+        - due
+        - tre
+    obj:
+        paranza: true
+        perenza: false
