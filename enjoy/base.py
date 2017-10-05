@@ -1,6 +1,8 @@
 import os
 import yaml
+import sockjs
 import asyncio
+import logging
 import functools
 from aiohttp import web
 from aiopg.sa import create_engine
@@ -12,6 +14,10 @@ from aiohttp_security import setup as setup_security
 from aiohttp_security import SessionIdentityPolicy
 
 from .db_auth import (check_credentials, DBAuthorizationPolicy)
+
+CHAT_FILE = open(
+    os.path.join(os.path.dirname(__file__), 'template',
+                 'chat.html'), 'rb').read()
 
 
 def require(permission):
@@ -61,6 +67,7 @@ class Enjoy(object):
 </form>
 <a href="/public">Public</a><br>
 <a href="/protected">Protected</a><br>
+<a href="/chat">Chat</a><br>
 <a href="/logout">Logout</a>
 </body>
 </html>
@@ -115,6 +122,21 @@ class Enjoy(object):
                                 content_type="text/html")
         return response
 
+    @require('public')
+    @asyncio.coroutine
+    def chat(self, request):
+        return web.Response(body=CHAT_FILE, content_type='text/html')
+
+    @require('public')
+    def chat_msg_handler(msg, session, whois):
+        print("\nchat_msg_handler\n")
+        if msg.tp == sockjs.MSG_OPEN:
+            session.manager.broadcast("Someone joined.")
+        elif msg.tp == sockjs.MSG_MESSAGE:
+            session.manager.broadcast(msg.data)
+        elif msg.tp == sockjs.MSG_CLOSED:
+            session.manager.broadcast("Someone left.")
+
     def setup(self, app):
         with open(os.path.join('.', 'config', 'enjoy.yml')) as f:
             app['config'] = yaml.load(f)
@@ -126,9 +148,13 @@ class Enjoy(object):
         app.db_engine = db_engine
         # setup_session(app, RedisStorage(redis_pool))
         setup_session(app, SimpleCookieStorage())
+        # import ipdb ; ipdb.set_trace()
         setup_security(app,
                        SessionIdentityPolicy(),
                        DBAuthorizationPolicy(db_engine))
+
+        logging.basicConfig(level=logging.DEBUG,
+                            format='%(asctime)s %(levelname)s %(message)s')
 
         app.enjoy = self
         router = app.router
@@ -136,5 +162,12 @@ class Enjoy(object):
         router.add_post('/login', self.login, name='login')
         router.add_get('/logout', self.logout, name='logout')
         router.add_get('/public', self.internal_page, name='public')
+        router.add_get('/chat', self.chat, name='chat')
         router.add_get('/protected', self.protected_page,
                        name='protected')
+
+        # manager=app.session, 
+        sockjs.add_endpoint(app, self.chat_msg_handler, name='chat',
+                            prefix='/sockjs/')
+
+        # loop.run_until_complete(handler.finish_connections())
