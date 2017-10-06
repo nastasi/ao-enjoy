@@ -26,19 +26,20 @@ CHAT_FILE = open(
 
 def require(permission):
     def wrapper(f):
-        @asyncio.coroutine
+
         @functools.wraps(f)
-        def wrapped(self, request):
-            has_perm = yield from permits(request, permission)
+        async def wrapped(self, request):
+            has_perm = await permits(request, permission)
             if not has_perm:
                 message = 'User has no permission {}'.format(permission)
-                raise web.HTTPForbidden(body=message.encode())
-            return (yield from f(self, request))
+                raise web.HTTPForbidden(text=message)
+            return await f(self, request)
         return wrapped
     return wrapper
 
 
-class Enjoy(object):
+class Enjoy:
+
     index_template = """<!doctype html>
 <head>
 </head>
@@ -77,63 +78,51 @@ class Enjoy(object):
 </html>
 """
 
-    @asyncio.coroutine
-    def index(self, request):
-        username = yield from authorized_userid(request)
+    async def index(self, request):
+        username = await authorized_userid(request)
         if username:
             template = self.index_template.format(
                 message='Hello, {username}!'.format(username=username))
         else:
             template = self.index_template.format(message='You need to login')
         response = web.Response(body=template.encode(),
-                                content_type="text/html")
+                                content_type='text/html')
         return response
 
-    @asyncio.coroutine
-    def login(self, request):
+    async def login(self, request):
         response = web.HTTPFound('/')
-        form = yield from request.post()
+        form = await request.post()
         login = form.get('login')
         password = form.get('password')
         db_engine = request.app.db_engine
-        if (yield from check_credentials(db_engine, login, password)):
-            yield from remember(request, response, login)
+        if await check_credentials(db_engine, login, password):
+            await remember(request, response, login)
             return response
 
         return web.HTTPUnauthorized(
-            body=b'Invalid username/password combination')
+            text='Invalid username/password combination')
 
     @require('public')
-    @asyncio.coroutine
-    def logout(self, request):
+    async def logout(self, request):
         response = web.Response(body=b'You have been logged out',
                                 content_type="text/html")
-        yield from forget(request, response)
+        await forget(request, response)
         return response
 
     @require('public')
-    @asyncio.coroutine
-    def internal_page(self, request):
-        response = web.Response(
-            body=b'This page is visible for all registered users',
-            content_type="text/html")
-        return response
+    async def internal_page(self, request):
+        return web.Response(
+            text='This page is visible for all registered users')
 
     @require('protected')
-    @asyncio.coroutine
-    def protected_page(self, request):
-        response = web.Response(body=b'You are on protected page',
-                                content_type="text/html")
-        return response
+    async def protected_page(self, request):
+        return web.Response(text='You are on protected page')
 
-    @require('public')
-    @asyncio.coroutine
-    def chat(self, request):
+#    @require('public')
+    async def chat(self, request):
         return web.Response(body=CHAT_FILE, content_type='text/html')
 
-    @require('public')
     def chat_msg_handler(self, msg, session):
-        print("\nchat_msg_handler\n")
         if msg.tp == sockjs.MSG_OPEN:
             session.manager.broadcast("Someone joined.")
         elif msg.tp == sockjs.MSG_MESSAGE:
@@ -141,15 +130,15 @@ class Enjoy(object):
         elif msg.tp == sockjs.MSG_CLOSED:
             session.manager.broadcast("Someone left.")
 
-    def setup(self, app):
+    async def setup(self, app):
         with open(os.path.join('.', 'config', 'enjoy.yml')) as f:
             app['config'] = yaml.load(f)
 
         if USE_REAL_DB is True:
-            db_engine = yield from create_engine(user='aiohttp_security',
-                                                 password='aiohttp_security',
-                                                 database='aiohttp_security',
-                                                 host='127.0.0.1')
+            db_engine = await create_engine(user='aiohttp_security',
+                                            password='aiohttp_security',
+                                            database='aiohttp_security',
+                                            host='127.0.0.1')
         else:
             db_engine = None
 
