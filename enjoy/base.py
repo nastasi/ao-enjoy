@@ -132,7 +132,7 @@ class Enjoy(object):
         return web.Response(body=CHAT_FILE, content_type='text/html')
 
     @require('public')
-    def chat_msg_handler(msg, session, whois):
+    def chat_msg_handler(self, msg, session):
         print("\nchat_msg_handler\n")
         if msg.tp == sockjs.MSG_OPEN:
             session.manager.broadcast("Someone joined.")
