@@ -12,6 +12,8 @@ from aiohttp_session import SimpleCookieStorage
 from aiohttp_security import setup as setup_security
 from aiohttp_security import SessionIdentityPolicy
 
+from aiohttp.web import WebSocketResponse
+
 USE_REAL_DB = False
 if USE_REAL_DB is True:
     from aiopg.sa import create_engine
@@ -157,6 +159,8 @@ class Enjoy:
 
         logging.basicConfig(level=logging.DEBUG,
                             format='%(asctime)s %(levelname)s %(message)s')
+
+        WebSocketResponse.prepare = require('public')(WebSocketResponse.prepare)
 
         app.enjoy = self
         router = app.router
