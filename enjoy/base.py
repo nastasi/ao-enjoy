@@ -5,7 +5,6 @@ import asyncio
 import logging
 import functools
 from aiohttp import web
-from aiopg.sa import create_engine
 from aiohttp_security import remember, forget, authorized_userid, permits
 from aiohttp_session import setup as setup_session
 from aiohttp_session import SimpleCookieStorage
@@ -13,7 +12,12 @@ from aiohttp_session import SimpleCookieStorage
 from aiohttp_security import setup as setup_security
 from aiohttp_security import SessionIdentityPolicy
 
-from .db_auth import (check_credentials, DBAuthorizationPolicy)
+USE_REAL_DB = False
+if USE_REAL_DB is True:
+    from aiopg.sa import create_engine
+    from .db_auth import (check_credentials, DBAuthorizationPolicy)
+else:
+    from .db_dumb_auth import (check_credentials, DBDumbAuthorizationPolicy)
 
 CHAT_FILE = open(
     os.path.join(os.path.dirname(__file__), 'template',
@@ -141,17 +145,26 @@ class Enjoy(object):
         with open(os.path.join('.', 'config', 'enjoy.yml')) as f:
             app['config'] = yaml.load(f)
 
-        db_engine = yield from create_engine(user='aiohttp_security',
-                                             password='aiohttp_security',
-                                             database='aiohttp_security',
-                                             host='127.0.0.1')
+        if USE_REAL_DB is True:
+            db_engine = yield from create_engine(user='aiohttp_security',
+                                                 password='aiohttp_security',
+                                                 database='aiohttp_security',
+                                                 host='127.0.0.1')
+        else:
+            db_engine = None
+
         app.db_engine = db_engine
         # setup_session(app, RedisStorage(redis_pool))
         setup_session(app, SimpleCookieStorage())
         # import ipdb ; ipdb.set_trace()
+        if USE_REAL_DB is True:
+            db_auth_class = DBAuthorizationPolicy
+        else:
+            db_auth_class = DBDumbAuthorizationPolicy
+
         setup_security(app,
                        SessionIdentityPolicy(),
-                       DBAuthorizationPolicy(db_engine))
+                       db_auth_class(db_engine))
 
         logging.basicConfig(level=logging.DEBUG,
                             format='%(asctime)s %(levelname)s %(message)s')
@@ -166,8 +179,5 @@ class Enjoy(object):
         router.add_get('/protected', self.protected_page,
                        name='protected')
 
-        # manager=app.session, 
         sockjs.add_endpoint(app, self.chat_msg_handler, name='chat',
                             prefix='/sockjs/')
-
-        # loop.run_until_complete(handler.finish_connections())
