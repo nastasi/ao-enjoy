@@ -173,4 +173,7 @@ class Enjoy:
                        name='protected')
 
         sockjs.add_endpoint(app, self.chat_msg_handler, name='chat',
-                            prefix='/sockjs/')
+                            disable_transports=(
+                                'xhr', 'xhr_send', 'xhr_streaming',
+                                'jsonp', 'jsonp_send', 'htmlfile',
+                                'eventsource'), prefix='/sockjs/')
