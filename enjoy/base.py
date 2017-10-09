@@ -43,15 +43,14 @@ def require(permission):
 
 
 class EnjoySessionManager(SessionManager):
-    pass
-#    def get(self, id, create=False, request=None):
-#        print("EnjoySessionManager")
-#        sess = super(EnjoySessionManager, self).get(id, create, request)
-#        if (request is not None):
-#            username = authorized_userid(request)
-#            if username:
-#                sess.registry.user_sess[username] = sess
-#        return sess
+    def get(self, id, create=False, request=None):
+        print("EnjoySessionManager")
+        sess = super(EnjoySessionManager, self).get(id, create, request)
+        if (request is not None):
+            username = authorized_userid(request)
+            if username:
+                sess.registry.user_sess[username] = sess
+        return sess
 
 
 class Enjoy:
@@ -138,7 +137,7 @@ class Enjoy:
     async def chat(self, request):
         return web.Response(body=CHAT_FILE, content_type='text/html')
 
-    def chat_msg_handler(self, msg, session):
+    async def chat_msg_handler(self, msg, session):
         #  username = await authorized_userid(request)
         if msg.tp == sockjs.MSG_OPEN:
             session.manager.broadcast("Someone joined.")
