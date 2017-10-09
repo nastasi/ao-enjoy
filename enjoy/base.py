@@ -6,11 +6,13 @@ import logging
 import functools
 from aiohttp import web
 from aiohttp_security import remember, forget, authorized_userid, permits
+from aiohttp_security import setup as setup_security
+from aiohttp_security import SessionIdentityPolicy
+
 from aiohttp_session import setup as setup_session
 from aiohttp_session import SimpleCookieStorage
 
-from aiohttp_security import setup as setup_security
-from aiohttp_security import SessionIdentityPolicy
+from sockjs.session import SessionManager
 
 from aiohttp.web import WebSocketResponse
 
@@ -38,6 +40,18 @@ def require(permission):
             return await f(self, request)
         return wrapped
     return wrapper
+
+
+class EnjoySessionManager(SessionManager):
+    pass
+#    def get(self, id, create=False, request=None):
+#        print("EnjoySessionManager")
+#        sess = super(EnjoySessionManager, self).get(id, create, request)
+#        if (request is not None):
+#            username = authorized_userid(request)
+#            if username:
+#                sess.registry.user_sess[username] = sess
+#        return sess
 
 
 class Enjoy:
@@ -125,6 +139,7 @@ class Enjoy:
         return web.Response(body=CHAT_FILE, content_type='text/html')
 
     def chat_msg_handler(self, msg, session):
+        #  username = await authorized_userid(request)
         if msg.tp == sockjs.MSG_OPEN:
             session.manager.broadcast("Someone joined.")
         elif msg.tp == sockjs.MSG_MESSAGE:
@@ -144,6 +159,7 @@ class Enjoy:
         else:
             db_engine = None
 
+        app.user_sess = dict()
         app.db_engine = db_engine
         # setup_session(app, RedisStorage(redis_pool))
         setup_session(app, SimpleCookieStorage())
@@ -172,7 +188,11 @@ class Enjoy:
         router.add_get('/protected', self.protected_page,
                        name='protected')
 
+        manager = EnjoySessionManager("chat", app, self.chat_msg_handler,
+                                      app.loop)
+        print(self.chat_msg_handler)
         sockjs.add_endpoint(app, self.chat_msg_handler, name='chat',
+                            manager=manager,
                             disable_transports=(
                                 'xhr', 'xhr_send', 'xhr_streaming',
                                 'jsonp', 'jsonp_send', 'htmlfile',
