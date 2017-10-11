@@ -47,9 +47,18 @@ class EnjoySessionManager(SessionManager):
         print("EnjoySessionManager")
         sess = super(EnjoySessionManager, self).get(id, create, request)
         if (request is not None):
-            username = authorized_userid(request)
-            if username:
-                sess.registry.user_sess[username] = sess
+            loop = self.app.loop
+
+            ret = asyncio.run_coroutine_threadsafe(authorized_userid(request),
+                                                   loop)
+            print("POST RET")
+            try:
+                username = ret.result(20)
+                print(username)
+                if username:
+                    sess.registry.user_sess[username] = sess
+            except:
+                print("RESULTAMMA")
         return sess
 
 
@@ -119,6 +128,13 @@ class Enjoy:
 
     @require('public')
     async def logout(self, request):
+        print(request.app.user_sess)
+        username = authorized_userid(request)
+        if username:
+            if username in request.app.user_sess:
+                print("CLOSE QUI")
+                request.app.user_sess[username].close()
+
         response = web.Response(body=b'You have been logged out',
                                 content_type="text/html")
         await forget(request, response)
