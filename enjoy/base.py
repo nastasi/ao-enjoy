@@ -42,23 +42,25 @@ def require(permission):
     return wrapper
 
 
+def sync_exec(coro):
+    loop = asyncio.new_event_loop()
+    ret = loop.run_until_complete(coro)
+    loop.stop()
+    return ret
+
+
 class EnjoySessionManager(SessionManager):
     def get(self, id, create=False, request=None):
         print("EnjoySessionManager")
         sess = super(EnjoySessionManager, self).get(id, create, request)
-        if (request is not None):
-            loop = self.app.loop
 
-            ret = asyncio.run_coroutine_threadsafe(authorized_userid(request),
-                                                   loop)
-            print("POST RET")
-            try:
-                username = ret.result(20)
-                print(username)
-                if username:
-                    sess.registry.user_sess[username] = sess
-            except:
-                print("RESULTAMMA")
+        print(type(sess))
+        print(dir(sess))
+        if (request is not None):
+            username = sync_exec(authorized_userid(request))
+            if username:
+                sess.registry.user_sess[username] = sess
+
         return sess
 
 
@@ -128,16 +130,25 @@ class Enjoy:
 
     @require('public')
     async def logout(self, request):
+        print("MOP LOGOUT")
         print(request.app.user_sess)
-        username = authorized_userid(request)
+        username = await authorized_userid(request)
         if username:
+            print("LOGOUT [%s]" % username)
             if username in request.app.user_sess:
                 print("CLOSE QUI")
-                request.app.user_sess[username].close()
 
+                sess = request.app.user_sess[username]
+                print(type(sess))
+                print(dir(sess))
+
+                sess.close()
+
+        print("QUI x")
         response = web.Response(body=b'You have been logged out',
                                 content_type="text/html")
         await forget(request, response)
+        print("QUI end")
         return response
 
     @require('public')
@@ -196,6 +207,8 @@ class Enjoy:
         app.enjoy = self
         router = app.router
         router.add_get('/', self.index)
+        router.add_static('/js/', path=os.path.join(
+            os.path.dirname(__file__), 'template', 'js'), name='js')
         router.add_post('/login', self.login, name='login')
         router.add_get('/logout', self.logout, name='logout')
         router.add_get('/public', self.internal_page, name='public')

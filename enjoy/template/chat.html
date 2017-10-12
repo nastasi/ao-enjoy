@@ -1,8 +1,12 @@
 <!DOCTYPE html>
 <html>
 <head>
+  <!--
   <script src="http://ajax.googleapis.com/ajax/libs/jquery/1.4.2/jquery.min.js"></script>
   <script src="//cdn.jsdelivr.net/sockjs/0.3.4/sockjs.min.js"></script>
+  -->
+  <script src="/js/jquery.min.js"></script>
+  <script src="/js/sockjs.min.js"></script>
   <script>
     $(function() {
       var conn = null;
@@ -91,7 +95,9 @@
     <li>
       <input id="websocket" type="checkbox" value="websocket" checked="checked">
       <label for="websocket">websocket</label>
-    <p>transports below currently disabled<br>because authentication not yet integrated.
+    <p>transports below currently disabled<br>because authentication not yet integrated.</p>
+    </li>
+    <!--
     <li>
       <input id="xhr-streaming" type="checkbox" value="xhr-streaming" disabled="disabled">
       <label for="xhr-streaming">xhr-streaming</label>
@@ -119,6 +125,7 @@
       <input id="jsonp-polling" type="checkbox" value="jsonp-polling" disabled="disabled">
       <label for="jsonp-polling">jsonp-polling</label>
     </li>
+    -->
   </ul>
 </div>
 
