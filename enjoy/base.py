@@ -52,14 +52,17 @@ def sync_exec(coro):
 class EnjoySessionManager(SessionManager):
     def get(self, id, create=False, request=None):
         print("EnjoySessionManager")
-        sess = super(EnjoySessionManager, self).get(id, create, request)
-
-        print(type(sess))
-        print(dir(sess))
         if (request is not None):
             username = sync_exec(authorized_userid(request))
             if username:
+                sess = super(EnjoySessionManager, self).get(
+                    id, create, request)
                 sess.registry.user_sess[username] = sess
+                return sess
+            else:
+                raise KeyError
+        else:
+            sess = super(EnjoySessionManager, self).get(id, create, request)
 
         return sess
 
