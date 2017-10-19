@@ -4,6 +4,7 @@ import sockjs
 import logging
 import functools
 import codecs
+import asyncio
 from aiohttp import web
 from aiohttp_security import remember, forget, authorized_userid, permits
 from aiohttp_security import setup as setup_security
@@ -47,6 +48,7 @@ def require(permission):
 
 class EnjoySessionManager(SessionManager):
     def get(self, id, create=False, request=None, default=_marker):
+        print("MOP: inside manager.get")
         session = super().get(
             id, create=create, request=request)
         self.ao_enjoy = self.app.ao_enjoy
@@ -133,7 +135,9 @@ class Enjoy:
         if msg.tp == sockjs.MSG_OPEN:
             request = session.ao_request
             username = await authorized_userid(request)
-            print("SESSION HERE %s" % session)
+            if username is None:
+                raise asyncio.CancelledError
+            print("SESSION HERE [%s]" % username)
             self.user_sess[username] = session
             session.ao_username = username
 
@@ -191,9 +195,15 @@ class Enjoy:
         manager = EnjoySessionManager("chat", app, self.chat_msg_handler,
                                       app.loop)
         print(self.chat_msg_handler)
+
+        # disable_transports = (
+        #     'xhr', 'xhr_send', 'xhr_streaming',
+        #     'jsonp', 'jsonp_send', 'htmlfile',
+        #     'eventsource'),
+        disable_transports = ()
+
         sockjs.add_endpoint(app, self.chat_msg_handler, name='chat',
                             manager=manager,
-                            disable_transports=(
-                                'xhr', 'xhr_send', 'xhr_streaming',
-                                'jsonp', 'jsonp_send', 'htmlfile',
-                                'eventsource'), prefix='/sockjs/')
+                            sockjs_cdn='/js/sockjs.min.js',
+                            prefix='/sockjs/',
+                            disable_transports=disable_transports)
