@@ -1,9 +1,9 @@
 import os
 import yaml
 import sockjs
-import asyncio
 import logging
 import functools
+import codecs
 from aiohttp import web
 from aiohttp_security import remember, forget, authorized_userid, permits
 from aiohttp_security import setup as setup_security
@@ -12,7 +12,7 @@ from aiohttp_security import SessionIdentityPolicy
 from aiohttp_session import setup as setup_session
 from aiohttp_session import SimpleCookieStorage
 
-from sockjs.session import SessionManager
+from sockjs.session import (SessionManager, _marker)
 
 from aiohttp.web import WebSocketResponse
 
@@ -23,10 +23,13 @@ if USE_REAL_DB is True:
 else:
     from .db_dumb_auth import (check_credentials, DBDumbAuthorizationPolicy)
 
-CHAT_FILE = open(
+CHAT_FILE = codecs.open(
     os.path.join(os.path.dirname(__file__), 'template',
-                 'chat.html'), 'rb').read()
+                 'chat.html'), 'rb', encoding="utf8").read()
 
+INDEX_FILE = codecs.open(
+    os.path.join(os.path.dirname(__file__), 'template',
+                 'index.html'), 'rb', encoding="utf8").read()
 
 def require(permission):
     def wrapper(f):
@@ -42,78 +45,35 @@ def require(permission):
     return wrapper
 
 
-def sync_exec(coro):
-    loop = asyncio.new_event_loop()
-    ret = loop.run_until_complete(coro)
-    loop.stop()
-    return ret
-
-
 class EnjoySessionManager(SessionManager):
-    def get(self, id, create=False, request=None):
-        print("EnjoySessionManager")
-        if (request is not None):
-            username = sync_exec(authorized_userid(request))
-            if username:
-                sess = super(EnjoySessionManager, self).get(
-                    id, create, request)
-                sess.registry.user_sess[username] = sess
-                return sess
+    def get(self, id, create=False, request=None, default=_marker):
+        session = super().get(
+            id, create=create, request=request)
+        self.ao_enjoy = self.app.ao_enjoy
+        if session is None:
+            if create:
+                session = self._add(
+                    self.factory(
+                        id, self.handler,
+                        timeout=self.timeout,
+                        loop=self.loop, debug=self.debug))
             else:
-                raise KeyError
-        else:
-            sess = super(EnjoySessionManager, self).get(id, create, request)
+                if default is not _marker:
+                    return default
+                raise KeyError(id)
 
-        return sess
+        session.ao_request = request
+        return session
 
 
 class Enjoy:
-
-    index_template = """<!doctype html>
-<head>
-</head>
-<body>
-<p>{message}</p>
-<form action="/login" method="post">
-  Login:
-  <input type="text" name="login">
-  Password:
-  <input type="password" name="password">
-  <input type="submit" value="Login">
-</form>
-<a href="/logout">Logout</a>
-</body>
-"""
-
-    index_template = """
-<!doctype html>
-<html>
-<head>
-</head>
-<body>
-<p>{message}</p>
-<form action="/login" method="post">
-  Login:
-  <input type="text" name="login">
-  Password:
-  <input type="password" name="password">
-  <input type="submit" value="Login">
-</form>
-<a href="/public">Public</a><br>
-<a href="/protected">Protected</a><br>
-<a href="/chat">Chat</a><br>
-<a href="/logout">Logout</a>
-</body>
-</html>
-"""
-
     async def index(self, request):
         username = await authorized_userid(request)
         if username:
-            template = self.index_template.format(
+            template = INDEX_FILE.format(
                 message='Hello, {username}!'.format(username=username))
         else:
-            template = self.index_template.format(message='You need to login')
+            template = INDEX_FILE.format(message='You need to login')
         response = web.Response(body=template.encode(),
                                 content_type='text/html')
         return response
@@ -134,24 +94,26 @@ class Enjoy:
     @require('public')
     async def logout(self, request):
         print("MOP LOGOUT")
-        print(request.app.user_sess)
+        print(self.user_sess)
         username = await authorized_userid(request)
         if username:
             print("LOGOUT [%s]" % username)
-            if username in request.app.user_sess:
+            if username in self.user_sess:
                 print("CLOSE QUI")
 
-                sess = request.app.user_sess[username]
-                print(type(sess))
-                print(dir(sess))
+                sess = self.user_sess[username]
+                if sess:
+                    print(type(sess))
+                    print(dir(sess))
 
-                sess.close()
-
-        print("QUI x")
-        response = web.Response(body=b'You have been logged out',
-                                content_type="text/html")
+                    manager = sess.manager
+                    await sess._remote_closed()
+                    if manager:
+                        await manager.release(sess)
+        response = web.Response(
+            body='<html><body>You have been logged out<br><a href="/">'
+            'Home</a></body></html>', content_type="text/html")
         await forget(request, response)
-        print("QUI end")
         return response
 
     @require('public')
@@ -163,18 +125,25 @@ class Enjoy:
     async def protected_page(self, request):
         return web.Response(text='You are on protected page')
 
-#    @require('public')
     async def chat(self, request):
         return web.Response(body=CHAT_FILE, content_type='text/html')
 
     async def chat_msg_handler(self, msg, session):
         #  username = await authorized_userid(request)
         if msg.tp == sockjs.MSG_OPEN:
+            request = session.ao_request
+            username = await authorized_userid(request)
+            print("SESSION HERE %s" % session)
+            self.user_sess[username] = session
+            session.ao_username = username
+
             session.manager.broadcast("Someone joined.")
         elif msg.tp == sockjs.MSG_MESSAGE:
             session.manager.broadcast(msg.data)
         elif msg.tp == sockjs.MSG_CLOSED:
             session.manager.broadcast("Someone left.")
+            print("REMOVE HERE")
+            self.user_sess.pop(session.ao_username)
 
     async def setup(self, app):
         with open(os.path.join('.', 'config', 'enjoy.yml')) as f:
@@ -188,7 +157,7 @@ class Enjoy:
         else:
             db_engine = None
 
-        app.user_sess = dict()
+        self.user_sess = dict()
         app.db_engine = db_engine
         # setup_session(app, RedisStorage(redis_pool))
         setup_session(app, SimpleCookieStorage())
@@ -207,7 +176,7 @@ class Enjoy:
 
         WebSocketResponse.prepare = require('public')(WebSocketResponse.prepare)
 
-        app.enjoy = self
+        app.ao_enjoy = self
         router = app.router
         router.add_get('/', self.index)
         router.add_static('/js/', path=os.path.join(
