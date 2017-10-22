@@ -47,11 +47,14 @@ def require(permission):
 
 
 class EnjoySessionManager(SessionManager):
-    def get(self, id, create=False, request=None, default=_marker):
-        print("MOP: inside manager.get")
-        session = super().get(
+    async def get(self, id, create=False, request=None, default=_marker):
+        if request:
+            username = await authorized_userid(request)
+            if bool(username) is False:
+                raise KeyError
+
+        session = await super().get(
             id, create=create, request=request)
-        self.ao_enjoy = self.app.ao_enjoy
         if session is None:
             if create:
                 session = self._add(
@@ -63,6 +66,14 @@ class EnjoySessionManager(SessionManager):
                 if default is not _marker:
                     return default
                 raise KeyError(id)
+
+        if request:
+            enjoy = request.app.ao_enjoy
+            if username in enjoy.user_sess:
+                if enjoy.user_sess[username] != session:
+                    print("SESSION DIFFER")
+            enjoy.user_sess[username] = session
+            session.ao_username = username
 
         session.ao_request = request
         return session
@@ -133,20 +144,11 @@ class Enjoy:
     async def chat_msg_handler(self, msg, session):
         #  username = await authorized_userid(request)
         if msg.tp == sockjs.MSG_OPEN:
-            request = session.ao_request
-            username = await authorized_userid(request)
-            if username is None:
-                raise asyncio.CancelledError
-            print("SESSION HERE [%s]" % username)
-            self.user_sess[username] = session
-            session.ao_username = username
-
             session.manager.broadcast("Someone joined.")
         elif msg.tp == sockjs.MSG_MESSAGE:
             session.manager.broadcast(msg.data)
         elif msg.tp == sockjs.MSG_CLOSED:
             session.manager.broadcast("Someone left.")
-            print("REMOVE HERE")
             self.user_sess.pop(session.ao_username)
 
     async def setup(self, app):
