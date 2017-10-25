@@ -4,7 +4,6 @@ import sockjs
 import logging
 import functools
 import codecs
-import asyncio
 from aiohttp import web
 from aiohttp_security import remember, forget, authorized_userid, permits
 from aiohttp_security import setup as setup_security
@@ -31,6 +30,7 @@ CHAT_FILE = codecs.open(
 INDEX_FILE = codecs.open(
     os.path.join(os.path.dirname(__file__), 'template',
                  'index.html'), 'rb', encoding="utf8").read()
+
 
 def require(permission):
     def wrapper(f):
@@ -180,7 +180,8 @@ class Enjoy:
         logging.basicConfig(level=logging.DEBUG,
                             format='%(asctime)s %(levelname)s %(message)s')
 
-        WebSocketResponse.prepare = require('public')(WebSocketResponse.prepare)
+        WebSocketResponse.prepare = require('public')(
+            WebSocketResponse.prepare)
 
         app.ao_enjoy = self
         router = app.router
