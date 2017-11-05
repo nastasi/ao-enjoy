@@ -4,7 +4,7 @@ from enjoy import Enjoy
 
 
 def main():
-    enjoy = Enjoy()
+    enjoy = Enjoy(use_real_db=False)
 
     app = web.Application()
     app.on_startup.append(enjoy.setup)

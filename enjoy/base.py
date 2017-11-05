@@ -16,13 +16,6 @@ from sockjs.session import (SessionManager, _marker)
 
 from aiohttp.web import WebSocketResponse
 
-USE_REAL_DB = False
-if USE_REAL_DB is True:
-    from aiopg.sa import create_engine
-    from .db_auth import (check_credentials, DBAuthorizationPolicy)
-else:
-    from .db_dumb_auth import (check_credentials, DBDumbAuthorizationPolicy)
-
 CHAT_FILE = codecs.open(
     os.path.join(os.path.dirname(__file__), 'template',
                  'chat.html'), 'rb', encoding="utf8").read()
@@ -80,6 +73,15 @@ class EnjoySessionManager(SessionManager):
 
 
 class Enjoy:
+    def __init__(self, **kwargs):
+        self.use_real_db = None
+        self.loop = None
+        if 'use_real_db' in kwargs:
+            self.use_real_db = kwargs['use_real_db']
+        if 'loop' in kwargs:
+            print("LOOP FOUND: %s" % kwargs['loop'])
+            self.loop = kwargs['loop']
+
     async def index(self, request):
         username = await authorized_userid(request)
         if username:
@@ -97,6 +99,11 @@ class Enjoy:
         login = form.get('login')
         password = form.get('password')
         db_engine = request.app.db_engine
+        if self.use_real_db:
+            from .db_auth import check_credentials
+        else:
+            from .db_dumb_auth import check_credentials
+
         if await check_credentials(db_engine, login, password):
             await remember(request, response, login)
             return response
@@ -155,8 +162,10 @@ class Enjoy:
         with open(os.path.join('.', 'config', 'enjoy.yml')) as f:
             app['config'] = yaml.load(f)
 
-        if USE_REAL_DB is True:
-            db_engine = await create_engine(user='aiohttp_security',
+        if self.use_real_db:
+            from aiopg.sa import create_engine
+            db_engine = await create_engine(loop=app.loop,
+                                            user='aiohttp_security',
                                             password='aiohttp_security',
                                             database='aiohttp_security',
                                             host='127.0.0.1')
@@ -168,9 +177,11 @@ class Enjoy:
         # setup_session(app, RedisStorage(redis_pool))
         setup_session(app, SimpleCookieStorage())
         # import ipdb ; ipdb.set_trace()
-        if USE_REAL_DB is True:
+        if self.use_real_db:
+            from .db_auth import DBAuthorizationPolicy
             db_auth_class = DBAuthorizationPolicy
         else:
+            from .db_dumb_auth import DBDumbAuthorizationPolicy
             db_auth_class = DBDumbAuthorizationPolicy
 
         setup_security(app,
