@@ -41,10 +41,14 @@ def require(permission):
 
 class EnjoySessionManager(SessionManager):
     async def get(self, id, create=False, request=None, default=_marker):
+        print("REQUEZZ %s" % request is not False)
         if request:
+            print("REQUEZX %s" % request)
             username = await authorized_userid(request)
             if bool(username) is False:
                 raise KeyError
+        else:
+            print("WOW %s" % ("True"  if bool(request) else "False"))
 
         session = await super().get(
             id, create=create, request=request)
@@ -75,12 +79,8 @@ class EnjoySessionManager(SessionManager):
 class Enjoy:
     def __init__(self, **kwargs):
         self.use_real_db = None
-        self.loop = None
         if 'use_real_db' in kwargs:
             self.use_real_db = kwargs['use_real_db']
-        if 'loop' in kwargs:
-            print("LOOP FOUND: %s" % kwargs['loop'])
-            self.loop = kwargs['loop']
 
     async def index(self, request):
         username = await authorized_userid(request)
