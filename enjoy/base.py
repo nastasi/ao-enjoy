@@ -13,7 +13,7 @@ from aiohttp_session import setup as setup_session
 from aiohttp_session import SimpleCookieStorage
 
 import enjoy
-from enjoy.sockjs.session import (EnjoySessionManagerBase, _marker)
+from sockjs.session import (SessionManager, _marker)
 
 from aiohttp.web import WebSocketResponse
 
@@ -40,7 +40,7 @@ def require(permission):
     return wrapper
 
 
-class EnjoySessionManager(EnjoySessionManagerBase):
+class EnjoySessionManager(SessionManager):
     async def get(self, id, create=False, request=None, default=_marker):
         print("REQUEZZ %s" % ("TRUE" if request is not False else "FALSE"))
         if request:
@@ -51,7 +51,7 @@ class EnjoySessionManager(EnjoySessionManagerBase):
         else:
             print("WOW %s" % ("True" if bool(request) else "False"))
 
-        session = await super().get(
+        session = super().get(
             id, create=create, request=request)
         if session is None:
             if create:
