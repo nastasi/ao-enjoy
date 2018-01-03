@@ -12,7 +12,8 @@ from aiohttp_security import SessionIdentityPolicy
 from aiohttp_session import setup as setup_session
 from aiohttp_session import SimpleCookieStorage
 
-from sockjs.session import (SessionManager, _marker)
+import enjoy
+from enjoy.sockjs.session import (EnjoySessionManagerBase, _marker)
 
 from aiohttp.web import WebSocketResponse
 
@@ -39,16 +40,16 @@ def require(permission):
     return wrapper
 
 
-class EnjoySessionManager(SessionManager):
+class EnjoySessionManager(EnjoySessionManagerBase):
     async def get(self, id, create=False, request=None, default=_marker):
-        print("REQUEZZ %s" % request is not False)
+        print("REQUEZZ %s" % ("TRUE" if request is not False else "FALSE"))
         if request:
             print("REQUEZX %s" % request)
             username = await authorized_userid(request)
             if bool(username) is False:
                 raise KeyError
         else:
-            print("WOW %s" % ("True"  if bool(request) else "False"))
+            print("WOW %s" % ("True" if bool(request) else "False"))
 
         session = await super().get(
             id, create=create, request=request)
@@ -216,7 +217,7 @@ class Enjoy:
         #     'eventsource'),
         disable_transports = ()
 
-        sockjs.add_endpoint(app, self.chat_msg_handler, name='chat',
+        enjoy.add_endpoint(app, self.chat_msg_handler, name='chat',
                             manager=manager,
                             sockjs_cdn='/js/sockjs.min.js',
                             prefix='/sockjs/',
