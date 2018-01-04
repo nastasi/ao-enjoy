@@ -51,7 +51,7 @@ class EnjoySessionManager(SessionManager):
         else:
             print("WOW %s" % ("True" if bool(request) else "False"))
 
-        session = super().get(
+        session = await super().get(
             id, create=create, request=request)
         if session is None:
             if create:
@@ -218,7 +218,7 @@ class Enjoy:
         disable_transports = ()
 
         enjoy.add_endpoint(app, self.chat_msg_handler, name='chat',
-                            manager=manager,
-                            sockjs_cdn='/js/sockjs.min.js',
-                            prefix='/sockjs/',
-                            disable_transports=disable_transports)
+                           manager=manager,
+                           sockjs_cdn='/js/sockjs.min.js',
+                           prefix='/sockjs/',
+                           disable_transports=disable_transports)
