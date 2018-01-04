@@ -7,4 +7,4 @@ aiopg==0.13.0
 aioredis==0.3.3
 SQLAlchemy==1.1.14
 PyYAML==3.12
--e git+git@github.com:nastasi/sockjs.git@49151c97db4260e864094980960b1bbfcb3e84f5#egg=sockjs
+sockjs=0.6.0
