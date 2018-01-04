@@ -51,7 +51,7 @@ class EnjoySessionManager(SessionManager):
         else:
             print("WOW %s" % ("True" if bool(request) else "False"))
 
-        session = await super().get(
+        session = super().get(
             id, create=create, request=request)
         if session is None:
             if create:
