@@ -78,7 +78,7 @@ class EnjoySessionManager(SessionManager):
         return session
 
 
-class Enjoy:
+class EnjoyChat:
     def __init__(self, **kwargs):
         self.use_real_db = None
         if 'use_real_db' in kwargs:

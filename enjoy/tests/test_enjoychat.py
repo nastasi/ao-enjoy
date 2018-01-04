@@ -1,11 +1,11 @@
 from aiohttp.test_utils import AioHTTPTestCase, unittest_run_loop
 from aiohttp import web
-from .. import Enjoy
+from .. import EnjoyChat
 
 
-class EnjoyFakeDBTestCase(AioHTTPTestCase):
+class EnjoyChatFakeDBTestCase(AioHTTPTestCase):
     async def get_application(self):
-        enjoy = Enjoy(use_real_db=False)
+        enjoy = EnjoyChat(use_real_db=False)
         app = web.Application()
         app.on_startup.append(enjoy.setup)
 
@@ -161,9 +161,9 @@ class EnjoyFakeDBTestCase(AioHTTPTestCase):
         assert request.status == 200
 
 
-class EnjoyTestCase(EnjoyFakeDBTestCase):
+class EnjoyChatTestCase(EnjoyChatFakeDBTestCase):
     async def get_application(self):
-        enjoy = Enjoy(use_real_db=True)
+        enjoy = EnjoyChat(use_real_db=True)
         app = web.Application()
         app.on_startup.append(enjoy.setup)
 
