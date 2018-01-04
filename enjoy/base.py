@@ -42,14 +42,15 @@ def require(permission):
 
 class EnjoySessionManager(SessionManager):
     async def get(self, id, create=False, request=None, default=_marker):
-        print("REQUEZZ %s" % ("TRUE" if request is not False else "FALSE"))
+        logging.debug("EnjoySessionManager::get %s" % (
+            "TRUE" if request is not False else "FALSE"))
         if request:
-            print("REQUEZX %s" % request)
+            logging.debug("EnjoySessionManager::get %s" % request)
             username = await authorized_userid(request)
             if bool(username) is False:
                 raise KeyError
         else:
-            print("WOW %s" % ("True" if bool(request) else "False"))
+            logging.warning("request is false")
 
         session = super().get(
             id, create=create, request=request)
@@ -69,7 +70,7 @@ class EnjoySessionManager(SessionManager):
             enjoy = request.app.ao_enjoy
             if username in enjoy.user_sess:
                 if enjoy.user_sess[username] != session:
-                    print("SESSION DIFFER")
+                    logging.warning("SESSION DIFFER")
             enjoy.user_sess[username] = session
             session.ao_username = username
 
@@ -114,19 +115,12 @@ class Enjoy:
 
     @require('public')
     async def logout(self, request):
-        print("MOP LOGOUT")
-        print(self.user_sess)
         username = await authorized_userid(request)
         if username:
-            print("LOGOUT [%s]" % username)
             if username in self.user_sess:
-                print("CLOSE QUI")
 
                 sess = self.user_sess[username]
                 if sess:
-                    print(type(sess))
-                    print(dir(sess))
-
                     manager = sess.manager
                     await sess._remote_closed()
                     if manager:
@@ -209,7 +203,6 @@ class Enjoy:
 
         manager = EnjoySessionManager("chat", app, self.chat_msg_handler,
                                       app.loop)
-        print(self.chat_msg_handler)
 
         # disable_transports = (
         #     'xhr', 'xhr_send', 'xhr_streaming',
