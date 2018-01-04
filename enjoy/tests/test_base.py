@@ -3,9 +3,9 @@ from aiohttp import web
 from .. import Enjoy
 
 
-class EnjoyTestCase(AioHTTPTestCase):
+class EnjoyFakeDBTestCase(AioHTTPTestCase):
     async def get_application(self):
-        enjoy = Enjoy(use_real_db=True)
+        enjoy = Enjoy(use_real_db=False)
         app = web.Application()
         app.on_startup.append(enjoy.setup)
 
@@ -65,6 +65,18 @@ class EnjoyTestCase(AioHTTPTestCase):
         await request.text()
 
     @unittest_run_loop
+    async def test_admin_protected(self):
+        request = await self.client.request(
+            "POST", "/login", data={
+                "login": "admin", "password": "password"})
+        assert request.status == 200
+        await request.text()
+        request = await self.client.request(
+            "GET", "/protected")
+        assert request.status == 200
+        await request.text()
+
+    @unittest_run_loop
     async def test_wrong_protected(self):
         request = await self.client.request(
             "GET", "/protected")
@@ -101,11 +113,10 @@ class EnjoyTestCase(AioHTTPTestCase):
             "POST", "/login", data={
                 "login": "user", "password": "password"})
         assert request.status == 200
-        await request.text()
+
         request = await self.client.request(
             "GET", "/logout")
         assert request.status == 200
-        await request.text()
 
     @unittest_run_loop
     async def test_wrong_logout(self):
@@ -114,10 +125,45 @@ class EnjoyTestCase(AioHTTPTestCase):
         assert request.status == 403
         await request.text()
 
+    @unittest_run_loop
+    async def test_wrong_sockjs_conn(self):
+        request = await self.client.request(
+            "POST", "/sockjs/666/sockjsss/xhr_streaming")
+        assert request.status == 404
+        await request.text()
 
-class EnjoyFakeDBTestCase(EnjoyTestCase):
+    @unittest_run_loop
+    async def test_sockjs_conn(self):
+        request = await self.client.request(
+            "POST", "/login", data={
+                "login": "user", "password": "password"})
+        assert request.status == 200
+        await request.text()
+
+        request = await self.client.request(
+            "POST", "/sockjs/666/sockjsss/xhr_streaming")
+        print(request.status)
+        assert request.status == 200
+
+    @unittest_run_loop
+    async def test_sockjs_logout(self):
+        request = await self.client.request(
+            "POST", "/login", data={
+                "login": "user", "password": "password"})
+        assert request.status == 200
+
+        request = await self.client.request(
+            "POST", "/sockjs/666/sockjsss/xhr_streaming")
+
+        request = await self.client.request(
+            "GET", "/logout")
+        print("REQ STAT: %d" % request.status)
+        assert request.status == 200
+
+
+class EnjoyTestCase(EnjoyFakeDBTestCase):
     async def get_application(self):
-        enjoy = Enjoy(use_real_db=False)
+        enjoy = Enjoy(use_real_db=True)
         app = web.Application()
         app.on_startup.append(enjoy.setup)
 
