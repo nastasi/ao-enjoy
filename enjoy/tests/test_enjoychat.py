@@ -5,9 +5,9 @@ from .. import EnjoyChat
 
 class EnjoyChatFakeDBTestCase(AioHTTPTestCase):
     async def get_application(self):
-        enjoy = EnjoyChat(use_real_db=False)
+        enjoy_chat = EnjoyChat(use_real_db=False)
         app = web.Application()
-        app.on_startup.append(enjoy.setup)
+        app.on_startup.append(enjoy_chat.setup)
 
         return app
 
