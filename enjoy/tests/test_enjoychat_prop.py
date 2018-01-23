@@ -1,9 +1,10 @@
 from aiohttp import web
 from aiohttp.test_utils import (AioHTTPTestCase, unittest_run_loop,
                                 setup_test_loop
-                                # , teardown_test_loop
                                 )
 from .. import EnjoyChat
+from ..sockjs.test_utils import SockjsTest
+
 import json
 
 
@@ -155,25 +156,17 @@ class EnjoyChatFakeDBTestCase(AioHTTPMultipleClientsTestCase):
             "POST", "/login", data={"login": "user", "password": "password"})
         assert request.status == 200
         await request.text()
+        sock_js = SockjsTest(self.client)
+        with sock_js:
+            await sock_js.connect(['xhr_streaming'], loop=self.loop)
+            print("LEN: %d" % len(sock_js.chunks))
+            await sock_js.send(["ROIP\nNOLLO"])
+            print("LEN: %d" % len(sock_js.chunks))
+            print("post width")
+            print(sock_js.chunks)
 
-        request = await self.client.request(
-            "POST", "/sockjs/666/sockjsss/xhr_streaming", read_until_eof=False,
-            chunked=True)
-        self.assertEqual(request.status, 200)
-
-        request2 = await self.client.request(
-            "POST", "/sockjs/666/sockjsss/xhr_send",
-            data=json.dumps(["ROIP\nNOLLO"]))
-        self.assertEqual(request2.status, 204)
-        print("REQ2 status: [%d]" % request2.status)
-
-        print(await request.content.readchunk())
-        print(await request.content.readchunk())
-        print(await request.content.readchunk())
-        ret = await request.content.readchunk()
-
-        xx = json.loads(ret[0][1:].decode('utf-8'))
-        print(xx[0])
+        # xx = json.loads(ret[0][1:].decode('utf-8'))
+        # print(xx[0])
         #print("prima")
         #import pdb ; pdb.set_trace()
         #x = json.loads(ret[0])
