@@ -25,6 +25,9 @@ class SockjsTest():
                     "POST", "/sockjs/666/sockjsss/xhr_streaming",
                     read_until_eof=False, chunked=True)
                 assert self.request_stream_in.status == 200
+
+                await self.readchunks(3, 10, loop=loop)
+
                 self.transport = self.TRANS_XHR_STREAMING
 
                 return True
