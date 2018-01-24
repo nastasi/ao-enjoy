@@ -159,19 +159,11 @@ class EnjoyChatFakeDBTestCase(AioHTTPMultipleClientsTestCase):
         sock_js = SockjsTest(self.client)
         with sock_js:
             await sock_js.connect(['xhr_streaming'], loop=self.loop)
-            print("LEN: %d" % len(sock_js.chunks))
-            await sock_js.send(["ROIP\nNOLLO"])
-            print("LEN: %d" % len(sock_js.chunks))
-            print("post width")
-            print(sock_js.chunks)
-
-        # xx = json.loads(ret[0][1:].decode('utf-8'))
-        # print(xx[0])
-        #print("prima")
-        #import pdb ; pdb.set_trace()
-        #x = json.loads(ret[0])
-        #print("dopo")
-        await self.client.session.close()
+            start_chunks = await sock_js.readchunks(3, 10, loop=self.loop)
+            await sock_js.send(["TEST\nMESSAGE"])
+            reply_chunk = await sock_js.readchunks(1, 10, loop=self.loop)
+            self.assertNotEqual(reply_chunk, None)
+            self.assertEqual(reply_chunk, [(b'a["TEST\\nMESSAGE"]\n', True)])
 
     @unittest_run_loop
     async def test_sockjs_logout(self):
