@@ -10,24 +10,13 @@ class SockjsTest():
         self.client = client
         self.request_stream_in = None
         self.transport = self.TRANS_NONE
-        #        self.chunks = []
-        #        self._chunks_collector = None
 
     def __enter__(self):
         pass
 
     def __exit__(self, *args):
-        #        if self._chunks_collector:
-        #            self._chunks_collector.cancel()
-        #            self._chunks_collector = None
-
         if self.request_stream_in:
             self.request_stream_in.close()
-
-    #    async def _chunks_collector_coro(self):
-    #        while True:
-    #            chunk = await self.request_stream_in.content.readchunk()
-    #            self.chunks.append(chunk)
 
     async def connect(self, transport_list, loop=None):
         for transport in transport_list:
@@ -37,9 +26,6 @@ class SockjsTest():
                     read_until_eof=False, chunked=True)
                 assert self.request_stream_in.status == 200
                 self.transport = self.TRANS_XHR_STREAMING
-#                cc = self._chunks_collector_coro()
-#                self._chunks_collector = asyncio.ensure_future(
-#                    cc, loop=loop)
 
                 return True
 
