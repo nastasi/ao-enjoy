@@ -144,11 +144,13 @@ class EnjoyChatFakeDBTestCase(AioHTTPMultipleClientsTestCase):
         await request.text()
 
     @unittest_run_loop
-    async def test_wrong_sockjs_conn(self):
-        request = await self.client.request(
-            "POST", "/sockjs/666/sockjsss/xhr_streaming")
-        assert request.status == 404
-        await request.text()
+    async def test_sockjs_conn_wrong(self):
+        sock_js = SockjsTest(self.client)
+        with sock_js:
+            try:
+                await sock_js.connect(['xhr_streaming'], loop=self.loop)
+            except AssertionError:
+                self.assertEqual(sock_js.request_stream_in.status, 404)
 
     @unittest_run_loop
     async def test_sockjs_conn(self):
@@ -159,10 +161,12 @@ class EnjoyChatFakeDBTestCase(AioHTTPMultipleClientsTestCase):
         sock_js = SockjsTest(self.client)
         with sock_js:
             await sock_js.connect(['xhr_streaming'], loop=self.loop)
-            await sock_js.send(["TEST\nMESSAGE"])
+            await sock_js.send(["Test\nMessage"])
             reply_chunk = await sock_js.readchunks(1, 10, loop=self.loop)
             self.assertNotEqual(reply_chunk, None)
-            self.assertEqual(reply_chunk, [(b'a["TEST\\nMESSAGE"]\n', True)])
+            self.assertEqual(json.loads(
+                reply_chunk[0][0][1:].decode('utf-8')),
+                ["Test\nMessage"])
 
     @unittest_run_loop
     async def test_sockjs_logout(self):
@@ -179,7 +183,47 @@ class EnjoyChatFakeDBTestCase(AioHTTPMultipleClientsTestCase):
         print("REQ STAT: %d" % request.status)
         assert request.status == 200
 
+    @unittest_run_loop
+    async def test_chat_msg_login(self):
+        print(self.client)
+        print(self.client2)
+        request = await self.client.request(
+            "POST", "/login", data={
+                "login": "user", "password": "password"})
+        assert request.status == 200
 
+        request2 = await self.client2.request(
+            "POST", "/login", data={
+                "login": "admin", "password": "password"})
+        assert request2.status == 200
+
+        sock_js = SockjsTest(self.client)
+        sock_js2 = SockjsTest(self.client2)
+        with sock_js2:
+            await sock_js.connect(['xhr_streaming'], loop=self.loop)
+            print("PRE CONNECT2: %s" % sock_js.request_stream_in.closed)
+            await sock_js2.connect(['xhr_streaming'], stream=667,
+                                   loop=self.loop)
+            return
+            print("POST CONNECT2: %s" % sock_js.request_stream_in.closed)
+            await sock_js.send(["Test\nMessage"])
+            reply_chunk = await sock_js.readchunks(1, 10, loop=self.loop)
+            print(reply_chunk)
+            self.assertNotEqual(reply_chunk, None)
+            self.assertEqual(json.loads(
+                reply_chunk[0][0][1:].decode('utf-8')),
+                ["Test\nMessage"])
+
+            #print(sock_js2.request_stream_in.closed)
+            #reply_chunk2 = await sock_js2.readchunks(1, 10, loop=self.loop)
+            #print(sock_js2.request_stream_in.closed)
+            #print(reply_chunk2)
+            #self.assertNotEqual(reply_chunk2, None)
+            #self.assertEqual(json.loads(
+            #    reply_chunk2[0][0][1:].decode('utf-8')),
+            #    ["Test\nMessage"])
+            
+            
 class EnjoyChatTestCase(EnjoyChatFakeDBTestCase):
     async def get_application(self):
         enjoy = EnjoyChat(use_real_db=True)
